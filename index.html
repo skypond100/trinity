@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마법사 아카데미</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060a0f;color:#c8d8e8;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}
+#app{width:400px;max-width:100vw;position:relative}
+canvas{display:block;margin:0 auto}
+.screen{display:none;padding:16px}
+.screen.active{display:block}
+h1{text-align:center;color:#00c8ff;font-size:1.6em;text-shadow:0 0 20px #00c8ff88;margin-bottom:8px}
+h2{color:#c9a84c;font-size:1.1em;margin:12px 0 6px}
+.subtitle{text-align:center;color:#8899aa;font-size:.85em;margin-bottom:20px}
+.btn{display:block;width:100%;padding:10px;margin:6px 0;background:linear-gradient(135deg,#0d2035,#162840);border:1px solid #00c8ff44;color:#00c8ff;font-size:.95em;cursor:pointer;border-radius:4px;transition:.2s}
+.btn:hover{background:linear-gradient(135deg,#162840,#1e3850);border-color:#00c8ff88;box-shadow:0 0 10px #00c8ff33}
+.btn.gold{color:#c9a84c;border-color:#c9a84c44}.btn.gold:hover{border-color:#c9a84c88;box-shadow:0 0 10px #c9a84c33}
+.btn.active{background:linear-gradient(135deg,#0d3020,#0d4030);border-color:#00ff8888;color:#00ff88}
+.btn.danger{color:#ff6688;border-color:#ff668844}.btn.danger:hover{border-color:#ff668888}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+input[type=text]{width:100%;padding:8px 12px;background:#0d1a28;border:1px solid #00c8ff44;color:#c8d8e8;font-size:1em;border-radius:4px;outline:none;margin:4px 0 12px}
+input[type=text]:focus{border-color:#00c8ff88}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:.85em}
+.stat-row .label{color:#8899aa}
+.stat-row .val{color:#00c8ff;font-weight:bold;min-width:40px;text-align:right}
+.bar{height:6px;background:#0d1a28;border-radius:3px;flex:1;margin:0 8px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.bar-hp .bar-fill{background:linear-gradient(90deg,#ff4466,#ff6688)}
+.bar-mp .bar-fill{background:linear-gradient(90deg,#4466ff,#66aaff)}
+.elem-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:4px 0}
+.elem-row{display:flex;align-items:center;gap:6px;font-size:.8em;padding:2px 0}
+.elem-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.elem-row .val{min-width:30px;text-align:right;color:#00c8ff}
+.log-area{height:90px;overflow-y:auto;background:#060e18;border:1px solid #0d2035;border-radius:4px;padding:6px 8px;font-size:.78em;line-height:1.6;margin:8px 0}
+.log-area::-webkit-scrollbar{width:4px}.log-area::-webkit-scrollbar-thumb{background:#1a3050}
+.activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0}
+.slot-info{text-align:center;font-size:.8em;color:#c9a84c;margin:4px 0;padding:4px;background:#0d1a28;border-radius:4px}
+.stage-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.8em;font-weight:bold;margin-left:6px}
+.section{background:#060e18;border:1px solid #0d2035;border-radius:6px;padding:10px;margin:8px 0}
+.elem-select{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.elem-btn{padding:8px 4px;text-align:center;border:1px solid #334;cursor:pointer;border-radius:4px;font-size:.85em;background:#0d1a28;transition:.2s}
+.elem-btn:hover,.elem-btn.sel{border-color:#00c8ff88;background:#0d2035;color:#00c8ff}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:.85em}
+.day-info{color:#c9a84c}
+.fast-btn{font-size:.7em;padding:2px 8px;cursor:pointer;border:1px solid #334;border-radius:3px;background:#0d1a28;color:#8899aa}
+.fast-btn.on{color:#00c8ff;border-color:#00c8ff44}
+.forbidden{color:#cc44ff;text-shadow:0 0 8px #cc44ff88}
+.warning{color:#ffaa44;font-size:.8em;text-align:center;padding:3px}
+#intro-canvas{border:1px solid #00c8ff22;border-radius:8px;box-shadow:0 0 30px #00c8ff11}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- INTRO SCREEN -->
+  <div id="screen-intro" class="screen active">
+    <canvas id="intro-canvas" width="400" height="200"></canvas>
+    <h1 style="margin-top:16px">마법사 아카데미</h1>
+    <p class="subtitle">마법사를 키워라 — 견습생에서 아키메이지까지</p>
+    <button class="btn gold" onclick="startGame()">새 게임</button>
+    <button class="btn" onclick="loadGame()" id="btn-load" style="display:none">이어하기</button>
+    <button class="btn danger" onclick="deleteGame()" id="btn-delete" style="display:none">저장 삭제</button>
+  </div>
+  <!-- SETUP SCREEN -->
+  <div id="screen-setup" class="screen">
+    <h1>캐릭터 생성</h1>
+    <div class="section">
+      <h2>이름</h2>
+      <input type="text" id="char-name" placeholder="아르카나" maxlength="12">
+    </div>
+    <div class="section">
+      <h2>시작 원소</h2>
+      <p style="font-size:.8em;color:#8899aa;margin-bottom:8px">선택한 원소에 +10 보너스로 시작합니다</p>
+      <div class="elem-select" id="elem-select"></div>
+    </div>
+    <button class="btn gold" onclick="confirmSetup()">시작하기</button>
+    <button class="btn" onclick="showScreen('intro')">돌아가기</button>
+  </div>
+  <!-- MAIN GAME SCREEN -->
+  <div id="screen-game" class="screen">
+    <div class="top-bar">
+      <span class="day-info" id="day-label">1일차</span>
+      <span id="stage-label"></span>
+      <span id="slot-label" style="color:#8899aa;font-size:.8em"></span>
+      <button class="fast-btn" id="fast-btn" onclick="toggleFast()">일반속도</button>
+    </div>
+    <canvas id="game-canvas" width="400" height="160"></canvas>
+    <div class="slot-info" id="slot-info"></div>
+    <div class="section">
+      <div class="stat-row bar-hp">
+        <span class="label">HP</span><div class="bar"><div class="bar-fill" id="bar-hp"></div></div>
+        <span class="val" id="val-hp"></span>
+      </div>
+      <div class="stat-row bar-mp">
+        <span class="label">MP</span><div class="bar"><div class="bar-fill" id="bar-mp"></div></div>
+        <span class="val" id="val-mp"></span>
+      </div>
+    </div>
+    <div class="section">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div class="stat-row"><span class="label">INT</span><span class="val" id="v-int">0</span></div>
+        <div class="stat-row"><span class="label">STR</span><span class="val" id="v-str">0</span></div>
+        <div class="stat-row"><span class="label">AGI</span><span class="val" id="v-agi">0</span></div>
+        <div class="stat-row"><span class="label">CHA</span><span class="val" id="v-cha">0</span></div>
+      </div>
+      <div class="elem-grid" id="elem-display"></div>
+    </div>
+    <div id="special-info" style="display:none" class="section"></div>
+    <div class="section">
+      <h2>행동 선택 <span id="activity-timer" style="font-size:.8em;color:#8899aa"></span></h2>
+      <div class="activity-grid" id="activity-btns"></div>
+    </div>
+    <div class="log-area" id="log"></div>
+    <div style="text-align:right;margin-top:4px">
+      <button class="btn" style="width:auto;display:inline-block;padding:4px 14px;font-size:.8em" onclick="saveGame()">저장</button>
+      <button class="btn danger" style="width:auto;display:inline-block;padding:4px 14px;font-size:.8em;margin-left:6px" onclick="confirmQuit()">종료</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== CONSTANTS =====
+const ELEM_COLORS = {fire:'#ff6644',water:'#44aaff',wind:'#88ff88',earth:'#cc8844',divine:'#ffffaa',dark:'#aa44ff'};
+const ELEM_NAMES = {fire:'화염',water:'물',wind:'바람',earth:'대지',divine:'신성',dark:'암흑'};
+const ELEM_LIST = ['fire','water','wind','earth','divine','dark'];
+const OPPOSITE = {fire:'water',water:'fire',wind:'earth',earth:'wind'};
+const STAGES = [
+  {name:'견습생',color:'#9ca3af',hat:'#4b5563',req:null},
+  {name:'수습생',color:'#6ee7b7',hat:'#065f46',req:g=>g.int+g.str+g.agi+g.cha>=50},
+  {name:'수련자',color:'#93c5fd',hat:'#1e40af',req:g=>Math.max(g.fire,g.water,g.wind,g.earth)>=30},
+  {name:'숙련자',color:'#c4b5fd',hat:'#4c1d95',req:g=>g.divine>=20||g.dark>=20},
+  {name:'마스터',color:'#fbbf24',hat:'#92400e',req:g=>totalStats(g)>=300},
+  {name:'아키메이지',color:'#fde68a',hat:'#78350f',req:g=>totalStats(g)>=800&&Math.max(g.fire,g.water,g.wind,g.earth,g.divine,g.dark)>=80},
+];
+const SLOTS = ['아침','오후','저녁','밤'];
+const SLOT_DURATION = 15000;
+const FAST_MULT = 5;
+
+const ACTIVITIES = [
+  {id:'study', name:'마법 공부', desc:'INT+, 원소+, MP-',
+   best:[0,1], gains:g=>({int:3,mp:-20,[randElem(g)]:1})},
+  {id:'train', name:'체력 훈련', desc:'STR+, AGI+, HP-',
+   best:[1], gains:()=>({str:2,agi:2,hp:-20,mp:-10})},
+  {id:'element', name:'원소 수련', desc:'선택원소+, STR+',
+   best:[3], gains:g=>({[g.startElem]:4,str:1,hp:-15,mp:-20})},
+  {id:'divine', name:'신성 수련', desc:'DIVINE+, INT+',
+   best:[0,1], gains:()=>({divine:4,int:1,hp:-5,mp:-15})},
+  {id:'dark', name:'암흑 수련', desc:'DARK+, INT+',
+   best:[3], gains:()=>({dark:4,int:1,hp:-10,mp:-15})},
+  {id:'social', name:'사교 활동', desc:'CHA+, HP-',
+   best:[2], gains:()=>({cha:4,hp:-10})},
+  {id:'sleep', name:'휴식', desc:'HP+, MP+',
+   best:[3], gains:()=>({hp:40,mp:40})},
+];
+
+const EVENTS = [
+  {chance:.08,msg:'마법 실험에 성공! INT+2',eff:g=>{g.int+=2}},
+  {chance:.06,msg:'훈련 중 부상! HP-20',eff:g=>{g.hp-=20}},
+  {chance:.05,msg:'마법서 발견! 원소+5',eff:g=>{g[ELEM_LIST[~~(Math.random()*4)]]+=5}},
+  {chance:.04,msg:'신비로운 꿈... MP 완전 회복',eff:g=>{g.mp=maxMp(g)}},
+  {chance:.05,msg:'동료와의 경쟁으로 CHA+2, INT+1',eff:g=>{g.cha+=2;g.int+=1}},
+  {chance:.03,msg:'낡은 주문서 발견! Dark+3, Divine+3',eff:g=>{g.dark+=3;g.divine+=3}},
+];
+
+// ===== STATE =====
+let G = null;
+let timer = null;
+let animT = 0;
+let animFrame = null;
+
+function initState(name, elem) {
+  return {
+    screen:'game', name, day:1, slot:0,
+    slotProgress:0, activity:null, startElem:elem,
+    hp:100, mp:50, int:10, str:10, agi:10, cha:10,
+    fire:0,water:0,wind:0,earth:0,divine:0,dark:0,
+    [elem]:10,
+    stage:0, log:[], lastSave:Date.now(), gameOver:false,
+    fastMode:false,
+  };
+}
+
+function maxHp(g) { return Math.min(2402, 300 + g.str*8 + ~~(g.str*g.str/50)); }
+function maxMp(g) { return Math.min(800, ~~(g.int * (2.5 + Math.min(4,g.stage)*0.375))); }
+function totalStats(g) { return g.int+g.str+g.agi+g.cha+g.fire+g.water+g.wind+g.earth+g.divine+g.dark; }
+
+function randElem(g) {
+  const elems = ELEM_LIST.slice(0,4);
+  return elems[~~(Math.random()*elems.length)];
+}
+
+function elemMult(g, id) {
+  if (id==='element') {
+    const opp = OPPOSITE[g.startElem];
+    if (opp && g[opp]-g[g.startElem]>=30) return 0.6;
+  }
+  return 1;
+}
+
+function slotMult(act, slot) {
+  return act.best.includes(slot) ? 1.5 : 1.0;
+}
+
+function applyGains(g, actId) {
+  const act = ACTIVITIES.find(a=>a.id===actId);
+  if (!act) return;
+  const raw = act.gains(g);
+  const sm = slotMult(act, g.slot);
+  const em = elemMult(g, actId);
+  const mult = sm * em;
+  const mhp = maxHp(g), mmp = maxMp(g);
+  const msgs = [];
+  for (const [k,v] of Object.entries(raw)) {
+    const dv = k==='hp'||k==='mp' ? v : Math.round(v*mult);
+    if (k==='hp') g.hp = Math.max(0, Math.min(mhp, g.hp+v));
+    else if (k==='mp') g.mp = Math.max(0, Math.min(mmp, g.mp+v));
+    else {
+      const prev = g[k]||0;
+      g[k] = Math.max(0, Math.min(200, prev+dv));
+      if (dv>0) msgs.push(`${statLabel(k)}+${dv}`);
+    }
+  }
+  if (sm>1) msgs.push('(최적시간 ×1.5)');
+  if (em<1) msgs.push('(원소 반발 ×0.6)');
+  addLog(g, `[${act.name}] ${msgs.join(' ')}`);
+}
+
+function statLabel(k) {
+  const m={int:'INT',str:'STR',agi:'AGI',cha:'CHA',
+    fire:'화염',water:'물',wind:'바람',earth:'대지',divine:'신성',dark:'암흑'};
+  return m[k]||k;
+}
+
+function addLog(g, msg) {
+  g.log.unshift(msg);
+  if (g.log.length>50) g.log.length=50;
+}
+
+function checkStageUp(g) {
+  for (let i=g.stage+1; i<STAGES.length; i++) {
+    if (STAGES[i].req && STAGES[i].req(g)) {
+      g.stage = i;
+      addLog(g, `★ 승급! ${STAGES[i].name}이(가) 되었습니다!`);
+      return true;
+    }
+  }
+  return false;
+}
+
+function tryEvent(g) {
+  for (const ev of EVENTS) {
+    if (Math.random()<ev.chance) {
+      ev.eff(g);
+      addLog(g, `[이벤트] ${ev.msg}`);
+      return;
+    }
+  }
+}
+
+function tickSlot() {
+  if (!G || G.gameOver) return;
+  if (G.activity) {
+    applyGains(G, G.activity);
+  }
+  tryEvent(G);
+  G.hp = Math.max(0, Math.min(maxHp(G), G.hp));
+  G.mp = Math.max(0, Math.min(maxMp(G), G.mp));
+  checkStageUp(G);
+  if (G.hp<=0) { G.gameOver=true; addLog(G,'HP가 0이 되었습니다... 쓰러졌습니다.'); }
+  G.slot = (G.slot+1)%4;
+  G.slotProgress = 0;
+  G.activity = null;
+  if (G.slot===0) G.day++;
+  updateUI();
+  saveGame(true);
+}
+
+// ===== TIMERS =====
+let slotInterval = null;
+let progressInterval = null;
+let progressPct = 0;
+
+function startTimers() {
+  stopTimers();
+  progressPct = 0;
+  const dur = G.fastMode ? SLOT_DURATION/FAST_MULT : SLOT_DURATION;
+  slotInterval = setTimeout(function tick() {
+    tickSlot();
+    if (!G.gameOver) {
+      progressPct = 0;
+      slotInterval = setTimeout(tick, G.fastMode ? SLOT_DURATION/FAST_MULT : SLOT_DURATION);
+    }
+  }, dur);
+  progressInterval = setInterval(()=>{
+    if (!G) return;
+    const d = G.fastMode ? SLOT_DURATION/FAST_MULT : SLOT_DURATION;
+    progressPct = Math.min(1, progressPct + 100/d);
+    document.getElementById('activity-timer').textContent =
+      `(${Math.round((1-progressPct)*d/1000)}초)`;
+  }, 100);
+}
+
+function stopTimers() {
+  clearTimeout(slotInterval);
+  clearInterval(progressInterval);
+  progressPct = 0;
+}
+
+function toggleFast() {
+  G.fastMode = !G.fastMode;
+  document.getElementById('fast-btn').textContent = G.fastMode ? '빠른속도' : '일반속도';
+  document.getElementById('fast-btn').className = 'fast-btn' + (G.fastMode?' on':'');
+  startTimers();
+}
+
+// ===== SAVE/LOAD =====
+function saveGame(silent=false) {
+  G.lastSave = Date.now();
+  localStorage.setItem('mage_save', JSON.stringify(G));
+  if (!silent) addLog(G,'게임이 저장되었습니다.');
+}
+
+function loadGame() {
+  const raw = localStorage.getItem('mage_save');
+  if (!raw) return;
+  G = JSON.parse(raw);
+  const offline = Date.now() - G.lastSave;
+  if (offline > 5000) {
+    const slots = Math.floor(offline / SLOT_DURATION);
+    if (slots > 0) {
+      const apply = Math.min(slots, 48);
+      addLog(G, `[오프라인] ${apply}슬롯 보정 적용`);
+      for (let i=0; i<apply; i++) {
+        G.activity = G.activity || 'sleep';
+        applyGains(G, 'sleep');
+        G.slot = (G.slot+1)%4;
+        if (G.slot===0) G.day++;
+      }
+      G.activity = null;
+    }
+  }
+  showScreen('game');
+  startTimers();
+  updateUI();
+}
+
+function deleteGame() {
+  if (!confirm('저장 데이터를 삭제하시겠습니까?')) return;
+  localStorage.removeItem('mage_save');
+  document.getElementById('btn-load').style.display='none';
+  document.getElementById('btn-delete').style.display='none';
+}
+
+function confirmQuit() {
+  if (confirm('저장하고 종료하시겠습니까?')) {
+    saveGame(true);
+    stopTimers();
+    cancelAnimationFrame(animFrame);
+    G = null;
+    showScreen('intro');
+    initIntroAnim();
+    checkSave();
+  }
+}
+
+function checkSave() {
+  const has = !!localStorage.getItem('mage_save');
+  document.getElementById('btn-load').style.display = has?'block':'none';
+  document.getElementById('btn-delete').style.display = has?'block':'none';
+}
+
+// ===== SCREENS =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+}
+
+function startGame() {
+  showScreen('setup');
+  buildElemSelect();
+}
+
+let selectedElem = 'fire';
+function buildElemSelect() {
+  const el = document.getElementById('elem-select');
+  el.innerHTML = '';
+  for (const e of ELEM_LIST) {
+    const d = document.createElement('div');
+    d.className = 'elem-btn' + (e===selectedElem?' sel':'');
+    d.style.borderColor = ELEM_COLORS[e]+'44';
+    d.innerHTML = `<span style="color:${ELEM_COLORS[e]}">${ELEM_NAMES[e]}</span>`;
+    d.onclick = ()=>{
+      selectedElem=e;
+      document.querySelectorAll('.elem-btn').forEach(b=>b.classList.remove('sel'));
+      d.classList.add('sel');
+    };
+    el.appendChild(d);
+  }
+}
+
+function confirmSetup() {
+  const name = document.getElementById('char-name').value.trim() || '아르카나';
+  G = initState(name, selectedElem);
+  addLog(G, `${name}의 여정이 시작되었습니다!`);
+  addLog(G, `시작 원소: ${ELEM_NAMES[selectedElem]}`);
+  saveGame(true);
+  showScreen('game');
+  startTimers();
+  updateUI();
+}
+
+// ===== UI UPDATE =====
+function updateUI() {
+  if (!G) return;
+  const mhp = maxHp(G), mmp = maxMp(G);
+  document.getElementById('day-label').textContent = `${G.day}일차`;
+  const st = STAGES[G.stage];
+  document.getElementById('stage-label').innerHTML =
+    `<span class="stage-badge" style="background:${st.hat}44;color:${st.color};border:1px solid ${st.color}44">${st.name}</span>`;
+  document.getElementById('slot-label').textContent = SLOTS[G.slot];
+  document.getElementById('slot-info').textContent =
+    `현재 시간대: ${SLOTS[G.slot]} — 최적 활동: ${getBestActs()}`;
+
+  const hpPct = Math.round(G.hp/mhp*100);
+  const mpPct = Math.round(G.mp/mmp*100);
+  document.getElementById('bar-hp').style.width = hpPct+'%';
+  document.getElementById('bar-mp').style.width = mpPct+'%';
+  document.getElementById('val-hp').textContent = `${G.hp}/${mhp}`;
+  document.getElementById('val-mp').textContent = `${G.mp}/${mmp}`;
+
+  document.getElementById('v-int').textContent = G.int;
+  document.getElementById('v-str').textContent = G.str;
+  document.getElementById('v-agi').textContent = G.agi;
+  document.getElementById('v-cha').textContent = G.cha;
+
+  const ed = document.getElementById('elem-display');
+  ed.innerHTML = '';
+  for (const e of ELEM_LIST) {
+    const row = document.createElement('div');
+    row.className = 'elem-row';
+    row.innerHTML = `<div class="elem-dot" style="background:${ELEM_COLORS[e]}"></div>
+      <span style="color:#8899aa">${ELEM_NAMES[e]}</span>
+      <div class="bar" style="flex:1"><div class="bar-fill" style="width:${G[e]}%;background:${ELEM_COLORS[e]}88"></div></div>
+      <span class="val">${G[e]}</span>`;
+    ed.appendChild(row);
+  }
+
+  const si = document.getElementById('special-info');
+  const specs = [];
+  const dcp = Math.round(G.cha*2 + Math.max(...ELEM_LIST.map(e=>G[e]))*1.5 + G.mp*0.1);
+  specs.push(`용 계약 능력치: <span style="color:#c9a84c">${dcp}</span>`);
+  if (G.divine+G.dark>=120) specs.push('<span class="forbidden">★ 금단 마법 해금!</span>');
+  si.innerHTML = specs.join(' · ');
+  si.style.display = 'block';
+
+  buildActivityBtns();
+
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = G.log.slice(0,20).map(l=>`<div>${l}</div>`).join('');
+
+  if (G.gameOver) {
+    document.querySelectorAll('#activity-btns .btn').forEach(b=>b.disabled=true);
+  }
+}
+
+function getBestActs() {
+  return ACTIVITIES.filter(a=>a.best.includes(G.slot)).map(a=>a.name).join(', ');
+}
+
+function buildActivityBtns() {
+  const el = document.getElementById('activity-btns');
+  el.innerHTML = '';
+  for (const act of ACTIVITIES) {
+    const btn = document.createElement('button');
+    const isBest = act.best.includes(G.slot);
+    btn.className = 'btn' + (G.activity===act.id?' active':'') + (isBest?' gold':'');
+    btn.disabled = G.gameOver;
+    btn.innerHTML = `<b>${act.name}</b>${isBest?'<span style="font-size:.7em;margin-left:4px">★최적</span>':''}<br><span style="font-size:.75em;color:#8899aa">${act.desc}</span>`;
+    btn.onclick = ()=>selectActivity(act.id);
+    el.appendChild(btn);
+  }
+}
+
+function selectActivity(id) {
+  if (G.gameOver) return;
+  G.activity = id;
+  buildActivityBtns();
+  addLog(G, `> ${ACTIVITIES.find(a=>a.id===id).name} 선택`);
+  updateUI();
+}
+
+// ===== CANVAS DRAWING =====
+function drawMage(ctx, g, t) {
+  const W=400, H=160;
+  ctx.clearRect(0,0,W,H);
+
+  ctx.fillStyle='#060a0f';
+  ctx.fillRect(0,0,W,H);
+  for (let i=0; i<60; i++) {
+    const sx = (i*137+t*0.2)%W;
+    const sy = (i*79+t*0.1)%H;
+    const a = 0.3+0.5*Math.sin(t*0.05+i);
+    ctx.fillStyle=`rgba(200,220,255,${a*0.6})`;
+    ctx.fillRect(sx,sy,1,1);
+  }
+
+  const grd = ctx.createLinearGradient(0,120,0,160);
+  const st = STAGES[g.stage];
+  grd.addColorStop(0, st.color+'22');
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;
+  ctx.fillRect(0,120,W,40);
+
+  const cx = W/2;
+  const cy = 100;
+  const bob = Math.sin(t*0.08)*3;
+
+  ctx.fillStyle = st.color;
+  ctx.beginPath();
+  ctx.moveTo(cx-22, cy-10+bob);
+  ctx.lineTo(cx+22, cy-10+bob);
+  ctx.lineTo(cx+28, cy+40+bob);
+  ctx.lineTo(cx-28, cy+40+bob);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = st.hat+'88';
+  ctx.beginPath();
+  ctx.moveTo(cx-5, cy-10+bob);
+  ctx.lineTo(cx+22, cy-10+bob);
+  ctx.lineTo(cx+28, cy+40+bob);
+  ctx.lineTo(cx, cy+40+bob);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#f5d9b0';
+  ctx.beginPath();
+  ctx.arc(cx, cy-20+bob, 14, 0, Math.PI*2);
+  ctx.fill();
+
+  const blink = (~~(t/40))%8===0;
+  if (!blink) {
+    ctx.fillStyle='#2a1a0a';
+    ctx.beginPath();ctx.arc(cx-5, cy-21+bob, 2.5, 0, Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+5, cy-21+bob, 2.5, 0, Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();ctx.arc(cx-4, cy-22+bob, 1, 0, Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+6, cy-22+bob, 1, 0, Math.PI*2);ctx.fill();
+  } else {
+    ctx.fillStyle='#2a1a0a';
+    ctx.fillRect(cx-7, cy-21+bob, 5, 1.5);
+    ctx.fillRect(cx+3, cy-21+bob, 5, 1.5);
+  }
+
+  ctx.fillStyle = st.hat;
+  ctx.beginPath();
+  ctx.moveTo(cx-18, cy-32+bob);
+  ctx.lineTo(cx+18, cy-32+bob);
+  ctx.lineTo(cx+10, cy-56+bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(cx-20, cy-33+bob, 40, 6);
+
+  ctx.fillStyle = st.color;
+  drawStar(ctx, cx, cy-48+bob, 4, 0.4);
+
+  const sw = Math.sin(t*0.05)*5;
+  ctx.strokeStyle = '#8b6914';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx+30+sw, cy-5+bob);
+  ctx.lineTo(cx+36+sw, cy+45+bob);
+  ctx.stroke();
+
+  const orbElem = g.startElem;
+  const orbColor = ELEM_COLORS[orbElem];
+  const pulse = 0.6+0.4*Math.sin(t*0.1);
+  ctx.shadowColor = orbColor;
+  ctx.shadowBlur = 15*pulse;
+  ctx.fillStyle = orbColor;
+  ctx.beginPath();
+  ctx.arc(cx+30+sw, cy-9+bob, 6+pulse*2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  const barY = H-14;
+  ctx.fillStyle='#0d1a28';ctx.fillRect(10,barY,120,8);
+  ctx.fillStyle='#ff4466';ctx.fillRect(10,barY,120*(g.hp/maxHp(g)),8);
+  ctx.fillStyle='#0d1a28';ctx.fillRect(10,barY+10,120,8);
+  ctx.fillStyle='#4466ff';ctx.fillRect(10,barY+10,120*(g.mp/maxMp(g)),8);
+  ctx.fillStyle='#8899aa';ctx.font='10px sans-serif';
+  ctx.fillText('HP',132,barY+7);
+  ctx.fillText('MP',132,barY+17);
+
+  ctx.fillStyle = st.color;
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(g.name, cx, 15);
+  ctx.fillStyle='#8899aa';ctx.font='10px sans-serif';
+  ctx.fillText(STAGES[g.stage].name, cx, 27);
+  ctx.textAlign='left';
+}
+
+function drawStar(ctx, x, y, r, inner) {
+  ctx.beginPath();
+  for (let i=0;i<10;i++) {
+    const a = i*Math.PI/5 - Math.PI/2;
+    const rr = i%2===0 ? r : r*inner;
+    if (i===0) ctx.moveTo(x+Math.cos(a)*rr, y+Math.sin(a)*rr);
+    else ctx.lineTo(x+Math.cos(a)*rr, y+Math.sin(a)*rr);
+  }
+  ctx.closePath();ctx.fill();
+}
+
+function initIntroAnim() {
+  const canvas = document.getElementById('intro-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let t=0;
+  const dummy = {stage:0,hp:100,mp:50,name:'',startElem:'fire',
+    fire:10,water:0,wind:0,earth:0,divine:0,dark:0,
+    int:10,str:10,agi:10,cha:10};
+  function loop() {
+    if (document.getElementById('screen-intro').classList.contains('active')) {
+      drawMage(ctx, dummy, t++);
+      animFrame = requestAnimationFrame(loop);
+    }
+  }
+  animFrame = requestAnimationFrame(loop);
+}
+
+function startGameAnim() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let t=0;
+  function loop() {
+    if (G && document.getElementById('screen-game').classList.contains('active')) {
+      drawMage(ctx, G, t++);
+      animFrame = requestAnimationFrame(loop);
+    }
+  }
+  animFrame = requestAnimationFrame(loop);
+}
+
+const _showScreen = showScreen;
+function showScreen(id) {
+  cancelAnimationFrame(animFrame);
+  _showScreen(id);
+  if (id==='intro') { setTimeout(initIntroAnim, 50); }
+  else if (id==='game') { setTimeout(startGameAnim, 50); }
+}
+
+window.onload = ()=>{
+  checkSave();
+  initIntroAnim();
+};
+</script>
+</body>
+</html>
